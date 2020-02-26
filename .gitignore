@@ -1,0 +1,6 @@
+# IDE based ignores
+*.idea
+*.iml
+
+# Dependency management base ignores
+target

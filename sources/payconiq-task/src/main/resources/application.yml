@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: payconiq-task
+server:
+  servlet:
+    context-path: /api

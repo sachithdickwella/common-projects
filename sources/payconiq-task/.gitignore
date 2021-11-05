@@ -1,0 +1,7 @@
+# IDE related ignores.
+.idea/
+*.iml
+
+# Program related ignores.
+logs/
+target/

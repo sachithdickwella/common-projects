@@ -86,6 +86,7 @@ public interface ControllerFacade<T> {
      *                information.
      * @param status  instance of {@link HttpStatus} to denote HTTP status of the response.
      * @param message instance of {@link String} to specify custom message in the response.
+     * @param count   of elements either fetched, modified or created.
      * @param payload instance of {@link T} that should include in the response payload.
      * @return a new instance of {@link Response} class with parameterized data from
      * the upstream.
@@ -94,11 +95,13 @@ public interface ControllerFacade<T> {
     default Response<T> buildResponse(@NotNull HttpServletRequest request,
                                       @NotNull HttpStatus status,
                                       @NotNull String message,
+                                      @NotNull Integer count,
                                       @NotNull T payload) {
         return new Response<>(LocalDateTime.now(),
                 request.getRequestURI(),
                 status,
                 message,
+                count,
                 List.of(payload));
     }
 
@@ -110,6 +113,7 @@ public interface ControllerFacade<T> {
      *                information.
      * @param status  instance of {@link HttpStatus} to denote HTTP status of the response.
      * @param message instance of {@link String} to specify custom message in the response.
+     * @param count   of elements either fetched, modified or created.
      * @param payload instance of {@link List<T>} that should include in the response payload.
      * @return a new instance of {@link Response} class with parameterized data from
      * the upstream.
@@ -118,11 +122,13 @@ public interface ControllerFacade<T> {
     default Response<T> buildResponse(@NotNull HttpServletRequest request,
                                       @NotNull HttpStatus status,
                                       @NotNull String message,
+                                      @NotNull Integer count,
                                       @NotNull List<T> payload) {
         return new Response<>(LocalDateTime.now(),
                 request.getRequestURI(),
                 status,
                 message,
+                count,
                 payload);
     }
 }

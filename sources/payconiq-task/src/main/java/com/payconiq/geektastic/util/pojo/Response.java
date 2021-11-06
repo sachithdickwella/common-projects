@@ -6,6 +6,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
@@ -41,6 +42,8 @@ public record Response<T>(
         @NotNull
         @JacksonXmlProperty(localName = "message")
         String message,
+        @NotNull
+        Integer count,
         @NotNull
         @JacksonXmlElementWrapper(localName = "payload")
         @JacksonXmlProperty(localName = "item")

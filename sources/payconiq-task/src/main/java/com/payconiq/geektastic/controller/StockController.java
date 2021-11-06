@@ -69,6 +69,7 @@ public class StockController implements ControllerFacade<Stock> {
                     .body(buildResponse(request,
                             HttpStatus.CREATED,
                             "Stock created with id '%s'".formatted(stock.getId()),
+                            1,
                             stock));
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -76,6 +77,7 @@ public class StockController implements ControllerFacade<Stock> {
                             HttpStatus.BAD_REQUEST,
                             "Stock id provided already exists: %s. Do not send the id in the payload"
                                     .formatted(stock.getId()),
+                            0,
                             stock));
         }
     }
@@ -124,12 +126,14 @@ public class StockController implements ControllerFacade<Stock> {
                     .body(buildResponse(request,
                             HttpStatus.NO_CONTENT,
                             "No stock is available for the id '%s'".formatted(id),
+                            0,
                             stocks));
         } else {
             return ResponseEntity.ok(
                     buildResponse(request,
                             HttpStatus.OK,
                             "Number of stocks retrieved for id '%s': %d".formatted(id, stocks.size()),
+                            stocks.size(),
                             stocks));
         }
     }
@@ -151,6 +155,7 @@ public class StockController implements ControllerFacade<Stock> {
                 buildResponse(request,
                         HttpStatus.OK,
                         "Number of stocks retrieved: %d".formatted(stocks.size()),
+                        stocks.size(),
                         stocks));
     }
 

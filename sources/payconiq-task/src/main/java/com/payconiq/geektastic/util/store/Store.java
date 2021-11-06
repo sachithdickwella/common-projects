@@ -31,10 +31,8 @@ public interface Store<K, T> {
      *
      * @param value to be inserted to the underline store, which ever it
      *              will be.
-     * @return {@code int} value of how many entries affected (inserted)
-     * and if this operation is a success, this will always return 1.
      */
-    int insert(@NotNull T value);
+    void insert(@NotNull T value);
 
     /**
      * Update operation handler for the store. Only handle single entry
@@ -42,10 +40,8 @@ public interface Store<K, T> {
      *
      * @param value to be updated to the underline store, which ever it
      *              will be.
-     * @return {@code int} value of how many entries affected (updated)
-     * and if this operation is a success, this will always return 1.
      */
-    int update(@NotNull T value);
+    void update(@NotNull T value);
 
     /**
      * Delete operation handler for the store. Only handle single entry

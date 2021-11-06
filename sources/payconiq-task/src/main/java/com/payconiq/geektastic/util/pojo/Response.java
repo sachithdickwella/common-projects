@@ -29,11 +29,20 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Response<T>(
-        @NotNull @JacksonXmlProperty(localName = "timestamp") LocalDateTime timestamp,
-        @NotNull @JacksonXmlProperty(localName = "path") String path,
-        @NotNull @JacksonXmlProperty(localName = "status") HttpStatus status,
-        @NotNull @JacksonXmlProperty(localName = "message") String message,
+        @NotNull
+        @JacksonXmlProperty(localName = "timestamp")
+        LocalDateTime timestamp,
+        @NotNull
+        @JacksonXmlProperty(localName = "path")
+        String path,
+        @NotNull
+        @JacksonXmlProperty(localName = "status")
+        HttpStatus status,
+        @NotNull
+        @JacksonXmlProperty(localName = "message")
+        String message,
         @NotNull
         @JacksonXmlElementWrapper(localName = "payload")
-        @JacksonXmlProperty(localName = "item") List<T> payload) {
+        @JacksonXmlProperty(localName = "item")
+        List<T> payload) {
 }

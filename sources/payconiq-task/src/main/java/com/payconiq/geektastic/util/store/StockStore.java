@@ -4,7 +4,6 @@ import com.payconiq.geektastic.entity.Stock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.io.ClassPathResource;
@@ -19,12 +18,16 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.payconiq.geektastic.util.AppConstants.CONST_DEFAULT_DATETIME_FORMAT;
+import static com.payconiq.geektastic.util.EntityStatus.*;
 import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Implementation of {@link Store} for {@link Stock}s, which provides
@@ -37,7 +40,7 @@ import static java.lang.Integer.parseInt;
 public class StockStore implements Store<UUID, Stock> {
 
     /**
-     * Static final Log4j logging instance for {@code InMemoryStoreConfig} class.
+     * Static final Log4j logging instance for {@code StockStore} class.
      */
     private static final Logger LOGGER = LogManager.getLogger(StockStore.class);
     /**
@@ -46,10 +49,21 @@ public class StockStore implements Store<UUID, Stock> {
      */
     private Map<UUID, Stock> store;
     /**
-     *
+     * Stock datastore file inject into a {@link ClassPathResource} instance to
+     * retrieve data in it.
      */
     @Value("${classpath:store/stock-store.csv}")
     private ClassPathResource resource;
+    /**
+     * Locking time period from the properties as an {@link Integer} value.
+     */
+    @Value("#{T(Integer).parseInt('${app.datasource.lock.time}')}")
+    private int lockTime;
+    /**
+     * Locking time period unit from the properties as a {@link ChronoUnit} value.
+     */
+    @Value("#{T(java.time.temporal.ChronoUnit).valueOf('${app.datasource.lock.time.unit}'.toUpperCase())}")
+    private ChronoUnit lockTimeUnit;
 
     /**
      * Lifecycle method to perform operation during bean creation.
@@ -57,13 +71,13 @@ public class StockStore implements Store<UUID, Stock> {
     @PostConstruct
     @Override
     public void init() {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
+        try (var reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             store = reader.lines()
                     .skip(1)
                     .parallel()
                     .map(line -> line.split(","))
                     .map(this::lineToStock)
-                    .collect(Collectors.toMap(Stock::id, stock -> stock));
+                    .collect(Collectors.toMap(Stock::getId, stock -> stock));
         } catch (IOException ex) {
             LOGGER.error("StockStore init is failed with {} data store: {}", resource, ex);
         }
@@ -75,40 +89,67 @@ public class StockStore implements Store<UUID, Stock> {
     @PreDestroy
     @Override
     public void dispose() throws IOException {
-        Files.write(resource.getFile().toPath(),
-                store.values()
-                        .stream()
-                        .map(Stock::toString)
-                        .toList(),
-                StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+        var target = resource.getFile().toPath();
+        Files.writeString(target, Stream.of(
+                                "Id",
+                                "Name",
+                                "Currency",
+                                "Price",
+                                "Quantity",
+                                "CreateDateTime",
+                                "LastUpdatedDateTime")
+                        .collect(joining(",", "", "\n")),
+                StandardOpenOption.TRUNCATE_EXISTING);
+
+        Files.write(target, store.values()
+                .stream()
+                .map(Stock::toString).toList(), StandardOpenOption.APPEND);
     }
 
     /**
      * Insert operation handler for the store. Only handle single entry
      * at once.
      *
-     * @param value to be inserted to the {@link #store} representation
+     * @param stock to be inserted to the {@link #store} representation
      *              of {@link HashMap}.
-     * @return {@code int} value of how many entries affected (inserted)
-     * and if this operation is a success, this will always return 1.
      */
     @Override
-    public int insert(@NotNull Stock value) {
-        return 0;
+    public void insert(@NotNull Stock stock) {
+        if (store.containsKey(stock.getId())) {
+            stock.setStatus(DUPLICATE);
+        } else {
+            stock.setId(UUID.randomUUID());
+
+            var now = LocalDateTime.now();
+            stock.setCreateDateTime(now);
+            stock.setLastUpdatedDateTime(now);
+            stock.setStatus(NEW);
+
+            store.put(stock.getId(), stock);
+        }
     }
 
     /**
      * Update operation handler for the store. Only handle single entry
      * at a time.
      *
-     * @param value to be updated to the {@link #store} representation
+     * @param stock to be updated to the {@link #store} representation
      *              of {@link HashMap}.
-     * @return {@code int} value of how many entries affected (updated)
-     * and if this operation is a success, this will always return 1.
      */
     @Override
-    public int update(@NotNull Stock value) {
-        return 0;
+    public void update(@NotNull Stock stock) {
+        if (store.containsKey(stock.getId())) {
+            if (isLocked(stock)) {
+                stock.setStatus(LOCKED);
+            } else {
+                stock.setLastUpdatedDateTime(LocalDateTime.now());
+                stock.setStatus(UPDATED);
+
+                store.put(stock.getId(), stock);
+            }
+        } else {
+            stock.setStatus(NOT_FOUND);
+        }
     }
 
     /**
@@ -122,7 +163,7 @@ public class StockStore implements Store<UUID, Stock> {
     @NotNull
     @Override
     public Optional<Stock> delete(@NotNull UUID key) {
-        return null;
+        return Optional.ofNullable(store.remove(key));
     }
 
     /**
@@ -161,14 +202,29 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @NotNull
     private Stock lineToStock(@NotNull String[] line) {
-        DateTimeFormatter formatter = CONST_DEFAULT_DATETIME_FORMAT.instance(DateTimeFormatter.class);
+        var formatter = CONST_DEFAULT_DATETIME_FORMAT.instance(DateTimeFormatter.class);
+
+        String price = line[3];
+        String quantity = line[4];
+
         return new Stock(
                 UUID.fromString(line[0]),
                 line[1],
                 line[2],
-                parseDouble(line[3]),
-                parseInt(line[4]),
+                !price.isBlank() && !price.equalsIgnoreCase("null") ? parseDouble(line[3]) : 0.0D,
+                !quantity.isBlank() && !price.equalsIgnoreCase("null") ? parseInt(line[4]) : 0,
                 LocalDateTime.parse(line[5], formatter),
                 LocalDateTime.parse(line[6], formatter));
+    }
+
+    /**
+     * Determine if the {@link Stock}'s last updated date time is within the locking
+     * period and return {@code true}, else return {@code false}.
+     *
+     * @param stock instance of {@link Stock} to be validated for locking.
+     * @return a {@code boolean} value whether the stock is locked or not.
+     */
+    private boolean isLocked(@NotNull Stock stock) {
+        return LocalDateTime.now().isAfter(stock.getLastUpdatedDateTime().plus(lockTime, lockTimeUnit));
     }
 }

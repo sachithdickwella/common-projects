@@ -3,6 +3,8 @@ package com.payconiq.geektastic.controller;
 import com.payconiq.geektastic.entity.Stock;
 import com.payconiq.geektastic.util.pojo.Response;
 import com.payconiq.geektastic.util.store.Store;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
 
+import static com.payconiq.geektastic.util.EntityStatus.NEW;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 
@@ -25,6 +28,10 @@ import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 @RestController
 public class StockController implements ControllerFacade<Stock> {
 
+    /**
+     * Static final Log4j logging instance for {@code StockController} class.
+     */
+    private static final Logger LOGGER = LogManager.getLogger(StockController.class);
     /**
      * Instance of {@link Store} to perform DB like transactions.
      */
@@ -51,11 +58,26 @@ public class StockController implements ControllerFacade<Stock> {
      * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @PostMapping(consumes = APPLICATION_JSON_VALUE, produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @PostMapping(consumes = APPLICATION_JSON_VALUE, produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
-    public @NotNull ResponseEntity<Response<Stock>> create(@NotNull Stock stock,
+    public @NotNull ResponseEntity<Response<Stock>> create(@NotNull @RequestBody Stock stock,
                                                            @NotNull HttpServletRequest request) {
-        return null;
+        store.insert(stock);
+
+        if (stock.getStatus().equals(NEW)) {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(buildResponse(request,
+                            HttpStatus.CREATED,
+                            "Stock created with id '%s'".formatted(stock.getId()),
+                            stock));
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(buildResponse(request,
+                            HttpStatus.BAD_REQUEST,
+                            "Stock id provided already exists: %s. Do not send the id in the payload"
+                                    .formatted(stock.getId()),
+                            stock));
+        }
     }
 
     /**
@@ -70,12 +92,12 @@ public class StockController implements ControllerFacade<Stock> {
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
     @PutMapping(path = "/{id}", consumes = APPLICATION_JSON_VALUE, produces = {
-            APPLICATION_XML_VALUE,
-            APPLICATION_JSON_VALUE
+            APPLICATION_JSON_VALUE,
+            APPLICATION_XML_VALUE
     })
     @Override
     public @NotNull ResponseEntity<Response<Stock>> update(@NotNull @PathVariable String id,
-                                                           @NotNull Stock stock,
+                                                           @NotNull @RequestBody Stock stock,
                                                            @NotNull HttpServletRequest request) {
         return null;
     }
@@ -89,7 +111,7 @@ public class StockController implements ControllerFacade<Stock> {
      * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @GetMapping(path = "/{id}", produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @GetMapping(path = "/{id}", produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
     public @NotNull ResponseEntity<Response<Stock>> single(@NotNull @PathVariable String id,
                                                            @NotNull HttpServletRequest request) {
@@ -97,13 +119,19 @@ public class StockController implements ControllerFacade<Stock> {
                 .stream()
                 .toList();
 
-        return ResponseEntity.ok(
-                buildResponse(request,
-                        HttpStatus.OK,
-                        stocks.isEmpty()
-                                ? "No stock is available for the id '%s'".formatted(id)
-                                : "Number of stocks retrieved for id '%s' are %d".formatted(id, stocks.size()),
-                        stocks));
+        if (stocks.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+                    .body(buildResponse(request,
+                            HttpStatus.NO_CONTENT,
+                            "No stock is available for the id '%s'".formatted(id),
+                            stocks));
+        } else {
+            return ResponseEntity.ok(
+                    buildResponse(request,
+                            HttpStatus.OK,
+                            "Number of stocks retrieved for id '%s': %d".formatted(id, stocks.size()),
+                            stocks));
+        }
     }
 
     /**
@@ -114,7 +142,7 @@ public class StockController implements ControllerFacade<Stock> {
      * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @GetMapping(produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @GetMapping(produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
     public @NotNull ResponseEntity<Response<Stock>> all(@NotNull HttpServletRequest request) {
         List<Stock> stocks = store.select();
@@ -135,7 +163,7 @@ public class StockController implements ControllerFacade<Stock> {
      * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @DeleteMapping(path = "/{id}", produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @DeleteMapping(path = "/{id}", produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
     public @NotNull ResponseEntity<Response<Stock>> delete(@NotNull @PathVariable String id,
                                                            @NotNull HttpServletRequest request) {

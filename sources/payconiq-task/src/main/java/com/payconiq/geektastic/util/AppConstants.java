@@ -2,6 +2,8 @@ package com.payconiq.geektastic.util;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.time.format.DateTimeFormatter;
+
 /**
  * Compile-time constants to access throughout the application lifecycle.
  *
@@ -9,7 +11,10 @@ import org.jetbrains.annotations.NotNull;
  */
 public enum AppConstants {
 
-    ;
+    /**
+     *
+     */
+    CONST_DEFAULT_DATETIME_FORMAT(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss"));
 
     /**
      *

@@ -4,8 +4,13 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.UUID;
+
+import static com.payconiq.geektastic.util.AppConstants.CONST_DEFAULT_DATETIME_FORMAT;
+import static java.lang.String.valueOf;
 
 /**
  * Data transfer object to orchestrate {@link com.payconiq.geektastic.controller.StockController}
@@ -44,5 +49,19 @@ public record Stock(@NotNull UUID id,
     @Override
     public int hashCode() {
         return Objects.hash(id, name);
+    }
+
+    @Override
+    public String toString() {
+        DateTimeFormatter formatter = CONST_DEFAULT_DATETIME_FORMAT.instance(DateTimeFormatter.class);
+        return new StringJoiner(",")
+                .add(id.toString())
+                .add(name)
+                .add(currency)
+                .add(valueOf(price))
+                .add(valueOf(quantity))
+                .add(createDateTime.format(formatter))
+                .add(lastUpdatedDateTime.format(formatter))
+                .toString();
     }
 }

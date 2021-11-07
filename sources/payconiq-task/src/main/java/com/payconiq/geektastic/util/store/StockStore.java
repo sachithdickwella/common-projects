@@ -24,9 +24,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.payconiq.geektastic.util.AppConstants.CONST_DEFAULT_DATETIME_FORMAT;
-import static com.payconiq.geektastic.util.EntityStatus.*;
 import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
+import static java.lang.System.currentTimeMillis;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -72,14 +72,18 @@ public class StockStore implements Store<UUID, Stock> {
     @Override
     public void init() {
         try (var reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
+            var start = currentTimeMillis();
             store = reader.lines()
                     .skip(1)
                     .parallel()
                     .map(line -> line.split(","))
                     .map(this::lineToStock)
-                    .collect(Collectors.toMap(Stock::getId, stock -> stock));
+                    .collect(Collectors.toMap(Stock::id, stock -> stock));
+            LOGGER.info("StockStore loading to memory is completed with {} dataset in {}ms",
+                    resource,
+                    currentTimeMillis() - start);
         } catch (IOException ex) {
-            LOGGER.error("StockStore init is failed with {} data store: {}", resource, ex);
+            LOGGER.error("StockStore init is failed with resource: %s".formatted(resource), ex);
         }
     }
 
@@ -88,22 +92,30 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @PreDestroy
     @Override
-    public void dispose() throws IOException {
-        var target = resource.getFile().toPath();
-        Files.writeString(target, Stream.of(
-                                "Id",
-                                "Name",
-                                "Currency",
-                                "Price",
-                                "Quantity",
-                                "CreateDateTime",
-                                "LastUpdatedDateTime")
-                        .collect(joining(",", "", "\n")),
-                StandardOpenOption.TRUNCATE_EXISTING);
+    public void dispose() {
+        try {
+            var start = currentTimeMillis();
+            var target = resource.getFile().toPath();
+            Files.writeString(target, Stream.of(
+                                    "Id",
+                                    "Name",
+                                    "Currency",
+                                    "Price",
+                                    "Quantity",
+                                    "CreateDateTime",
+                                    "LastUpdatedDateTime")
+                            .collect(joining(",", "", "\n")),
+                    StandardOpenOption.TRUNCATE_EXISTING);
 
-        Files.write(target, store.values()
-                .stream()
-                .map(Stock::toString).toList(), StandardOpenOption.APPEND);
+            Files.write(target, store.values()
+                    .stream()
+                    .map(Stock::toCSV).toList(), StandardOpenOption.APPEND);
+            LOGGER.info("StockStore backup is completed to {} with in-memory dataset in {}ms",
+                    resource,
+                    currentTimeMillis() - start);
+        } catch (IOException ex) {
+            LOGGER.error("StockStore backup is failed with resource: %s".formatted(resource), ex);
+        }
     }
 
     /**
@@ -112,20 +124,18 @@ public class StockStore implements Store<UUID, Stock> {
      *
      * @param stock to be inserted to the {@link #store} representation
      *              of {@link HashMap}.
+     * @return {@link Optional} value affected entry. if this operation
+     * is failed, {@link Optional#empty()} will be called.
      */
     @Override
-    public void insert(@NotNull Stock stock) {
-        if (store.containsKey(stock.getId())) {
-            stock.setStatus(DUPLICATE);
+    public Optional<Stock> insert(@NotNull Stock stock) {
+        if (store.containsKey(stock.id())) {
+            return Optional.empty();
         } else {
-            stock.setId(UUID.randomUUID());
-
             var now = LocalDateTime.now();
-            stock.setCreateDateTime(now);
-            stock.setLastUpdatedDateTime(now);
-            stock.setStatus(NEW);
+            stock = stock.enrich(UUID.randomUUID(), now, now);
 
-            store.put(stock.getId(), stock);
+            return Optional.ofNullable(store.put(stock.id(), stock));
         }
     }
 
@@ -133,22 +143,28 @@ public class StockStore implements Store<UUID, Stock> {
      * Update operation handler for the store. Only handle single entry
      * at a time.
      *
+     * @param id    of the value which needs to be updated in the store.
      * @param stock to be updated to the {@link #store} representation
      *              of {@link HashMap}.
+     * @return {@link Optional} value affected entry. if this operation
+     * is failed, {@link Optional#empty()} will be called.
      */
     @Override
-    public void update(@NotNull Stock stock) {
-        if (store.containsKey(stock.getId())) {
-            if (isLocked(stock)) {
-                stock.setStatus(LOCKED);
-            } else {
-                stock.setLastUpdatedDateTime(LocalDateTime.now());
-                stock.setStatus(UPDATED);
+    public Optional<Stock> update(@NotNull UUID id, @NotNull Stock stock) {
+        Optional<Stock> opStock = select(id);
+        if (opStock.isPresent()) {
+            Stock original = opStock.get();
+            Stock enriched = stock.enrich(
+                    Objects.requireNonNull(original.id(),
+                            "Id from the store is null: %s".formatted(original)),
+                    Objects.requireNonNull(original.createDateTime(),
+                            "Created date time from the store is null: %s".formatted(original)),
+                    Objects.requireNonNull(LocalDateTime.now(),
+                            "Last updated date time from the store is null: %s".formatted(original)));
 
-                store.put(stock.getId(), stock);
-            }
+            return Optional.ofNullable(store.put(id, enriched));
         } else {
-            stock.setStatus(NOT_FOUND);
+            return opStock;
         }
     }
 
@@ -225,6 +241,6 @@ public class StockStore implements Store<UUID, Stock> {
      * @return a {@code boolean} value whether the stock is locked or not.
      */
     private boolean isLocked(@NotNull Stock stock) {
-        return LocalDateTime.now().isAfter(stock.getLastUpdatedDateTime().plus(lockTime, lockTimeUnit));
+        return LocalDateTime.now().isAfter(stock.lastUpdatedDateTime().plus(lockTime, lockTimeUnit));
     }
 }

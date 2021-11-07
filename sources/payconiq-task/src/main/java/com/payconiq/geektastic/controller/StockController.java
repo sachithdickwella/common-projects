@@ -13,9 +13,10 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
-import static com.payconiq.geektastic.util.EntityStatus.NEW;
+import static com.payconiq.geektastic.util.pojo.Response.buildResponse;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 
@@ -62,24 +63,20 @@ public class StockController implements ControllerFacade<Stock> {
     @Override
     public @NotNull ResponseEntity<Response<Stock>> create(@NotNull @RequestBody Stock stock,
                                                            @NotNull HttpServletRequest request) {
-        store.insert(stock);
+        var opStock = store.insert(stock);
 
-        if (stock.getStatus().equals(NEW)) {
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(buildResponse(request,
-                            HttpStatus.CREATED,
-                            "Stock created with id '%s'".formatted(stock.getId()),
-                            1,
-                            stock));
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(buildResponse(request,
-                            HttpStatus.BAD_REQUEST,
-                            "Stock id provided already exists: %s. Do not send the id in the payload"
-                                    .formatted(stock.getId()),
-                            0,
-                            stock));
-        }
+        return opStock.map(value -> ResponseEntity.status(HttpStatus.CREATED)
+                        .body(buildResponse(request,
+                                HttpStatus.CREATED,
+                                "Stock created with id '%s'".formatted(value.id()),
+                                1,
+                                value)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(buildResponse(request,
+                                HttpStatus.BAD_REQUEST,
+                                "Stock id provided already exists: %s. Id should be removed.".formatted(stock.id()),
+                                0,
+                                stock)));
     }
 
     /**
@@ -101,7 +98,20 @@ public class StockController implements ControllerFacade<Stock> {
     public @NotNull ResponseEntity<Response<Stock>> update(@NotNull @PathVariable String id,
                                                            @NotNull @RequestBody Stock stock,
                                                            @NotNull HttpServletRequest request) {
-        return null;
+        var opStock = store.update(UUID.fromString(id), stock);
+
+        return opStock.map(value -> ResponseEntity.status(HttpStatus.OK)
+                        .body(buildResponse(request,
+                                HttpStatus.OK,
+                                "Stock modified with id '%s'.".formatted(id),
+                                1,
+                                value)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(buildResponse(request,
+                                HttpStatus.NOT_FOUND,
+                                "Cannot find the stock for id '%s'. Stock not modified.".formatted(stock.id()),
+                                0,
+                                stock)));
     }
 
     /**
@@ -117,22 +127,22 @@ public class StockController implements ControllerFacade<Stock> {
     @Override
     public @NotNull ResponseEntity<Response<Stock>> single(@NotNull @PathVariable String id,
                                                            @NotNull HttpServletRequest request) {
-        List<Stock> stocks = store.select(UUID.fromString(id))
+        var stocks = store.select(UUID.fromString(id))
                 .stream()
                 .toList();
 
         if (stocks.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+            return ResponseEntity.status(HttpStatus.OK)
                     .body(buildResponse(request,
                             HttpStatus.NO_CONTENT,
-                            "No stock is available for the id '%s'".formatted(id),
+                            "No stock is available for the id '%s' to retrieve.".formatted(id),
                             0,
                             stocks));
         } else {
             return ResponseEntity.ok(
                     buildResponse(request,
                             HttpStatus.OK,
-                            "Number of stocks retrieved for id '%s': %d".formatted(id, stocks.size()),
+                            "Number of stocks retrieved for id '%s': %d.".formatted(id, stocks.size()),
                             stocks.size(),
                             stocks));
         }
@@ -149,12 +159,12 @@ public class StockController implements ControllerFacade<Stock> {
     @GetMapping(produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
     public @NotNull ResponseEntity<Response<Stock>> all(@NotNull HttpServletRequest request) {
-        List<Stock> stocks = store.select();
+        var stocks = store.select();
 
         return ResponseEntity.ok(
                 buildResponse(request,
                         HttpStatus.OK,
-                        "Number of stocks retrieved: %d".formatted(stocks.size()),
+                        "Number of stocks retrieved: %d.".formatted(stocks.size()),
                         stocks.size(),
                         stocks));
     }
@@ -172,6 +182,19 @@ public class StockController implements ControllerFacade<Stock> {
     @Override
     public @NotNull ResponseEntity<Response<Stock>> delete(@NotNull @PathVariable String id,
                                                            @NotNull HttpServletRequest request) {
-        return null;
+        var opStock = store.delete(UUID.fromString(id));
+
+        return opStock.map(value -> ResponseEntity.status(HttpStatus.ACCEPTED)
+                        .body(buildResponse(request,
+                                HttpStatus.ACCEPTED,
+                                "Stock deleted for id '%s'.".formatted(id),
+                                1,
+                                value)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(buildResponse(request,
+                                HttpStatus.NOT_FOUND,
+                                "Cannot find the stock for id '%s'. Stock not deleted.".formatted(id),
+                                0,
+                                List.of())));
     }
 }

@@ -31,17 +31,22 @@ public interface Store<K, T> {
      *
      * @param value to be inserted to the underline store, which ever it
      *              will be.
+     * @return {@link Optional} value affected entry. if this operation
+     * is failed, {@link Optional#empty()} will be called.
      */
-    void insert(@NotNull T value);
+    Optional<T> insert(@NotNull T value);
 
     /**
      * Update operation handler for the store. Only handle single entry
      * at a time.
      *
+     * @param key   of the value which needs to be updated in the store.
      * @param value to be updated to the underline store, which ever it
      *              will be.
+     * @return {@link Optional} value affected entry. if this operation
+     * is failed, {@link Optional#empty()} will be called.
      */
-    void update(@NotNull T value);
+    Optional<T> update(@NotNull K key, @NotNull T value);
 
     /**
      * Delete operation handler for the store. Only handle single entry

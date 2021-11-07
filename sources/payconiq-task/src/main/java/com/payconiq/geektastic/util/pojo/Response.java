@@ -6,9 +6,9 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 
+import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,7 +19,7 @@ import java.util.List;
  * @param timestamp instance of {@link LocalDateTime} to specify when the response
  *                  created.
  * @param path      instance of {@link String} to denote request target path.
- * @param status    instance of {@link HttpStatus} to denote HTTP response code.
+ * @param status    instance of {@code int} to denote HTTP response code.
  * @param message   instance of {@link String} to represent detailed message about
  *                  what had happened.
  * @param payload   instance of {@link T} type where the response is pointed to if
@@ -36,9 +36,8 @@ public record Response<T>(
         @NotNull
         @JacksonXmlProperty(localName = "path")
         String path,
-        @NotNull
         @JacksonXmlProperty(localName = "status")
-        HttpStatus status,
+        int status,
         @NotNull
         @JacksonXmlProperty(localName = "message")
         String message,
@@ -48,4 +47,58 @@ public record Response<T>(
         @JacksonXmlElementWrapper(localName = "payload")
         @JacksonXmlProperty(localName = "item")
         List<T> payload) {
+
+    /**
+     * Response builder method to create an instance of {@link Response} with single
+     * payload value.
+     *
+     * @param request instance of {@link HttpServletRequest} to derive request related
+     *                information.
+     * @param status  instance of {@link HttpStatus} to denote HTTP status of the response.
+     * @param message instance of {@link String} to specify custom message in the response.
+     * @param count   of elements either fetched, modified or created.
+     * @param payload instance of {@link T} that should include in the response payload.
+     * @return a new instance of {@link Response} class with parameterized data from
+     * the upstream.
+     */
+    @NotNull
+    public static <T> Response<T> buildResponse(@NotNull HttpServletRequest request,
+                                                @NotNull HttpStatus status,
+                                                @NotNull String message,
+                                                @NotNull Integer count,
+                                                @NotNull T payload) {
+        return new Response<>(LocalDateTime.now(),
+                request.getRequestURI(),
+                status.value(),
+                message,
+                count,
+                List.of(payload));
+    }
+
+    /**
+     * Response builder method to create an instance of {@link Response} with {@link List}
+     * of payload values.
+     *
+     * @param request instance of {@link HttpServletRequest} to derive request related
+     *                information.
+     * @param status  instance of {@link HttpStatus} to denote HTTP status of the response.
+     * @param message instance of {@link String} to specify custom message in the response.
+     * @param count   of elements either fetched, modified or created.
+     * @param payload instance of {@link List<T>} that should include in the response payload.
+     * @return a new instance of {@link Response} class with parameterized data from
+     * the upstream.
+     */
+    @NotNull
+    public static <T> Response<T> buildResponse(@NotNull HttpServletRequest request,
+                                                @NotNull HttpStatus status,
+                                                @NotNull String message,
+                                                @NotNull Integer count,
+                                                @NotNull List<T> payload) {
+        return new Response<>(LocalDateTime.now(),
+                request.getRequestURI(),
+                status.value(),
+                message,
+                count,
+                payload);
+    }
 }

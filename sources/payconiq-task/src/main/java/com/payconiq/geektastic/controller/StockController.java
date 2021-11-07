@@ -1,14 +1,21 @@
 package com.payconiq.geektastic.controller;
 
-import com.payconiq.geektastic.config.InMemoryStoreConfig;
 import com.payconiq.geektastic.entity.Stock;
 import com.payconiq.geektastic.util.pojo.Response;
+import com.payconiq.geektastic.util.store.Store;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.UUID;
 
+import static com.payconiq.geektastic.util.pojo.Response.buildResponse;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 
@@ -22,14 +29,23 @@ import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 public class StockController implements ControllerFacade<Stock> {
 
     /**
-     *
+     * Static final Log4j logging instance for {@code StockController} class.
      */
-    private final InMemoryStoreConfig.Store store;
+    private static final Logger LOGGER = LogManager.getLogger(StockController.class);
+    /**
+     * Instance of {@link Store} to perform DB like transactions.
+     */
+    private final Store<UUID, Stock> store;
 
     /**
+     * Single-args public constructor to initialize local instance
+     * members with injected beans from bean context.
      *
+     * @param store instance injected by bean context. Annotation
+     *              {@link Qualifier} not mandatory since only one
+     *              {@link Store} bean is registered.
      */
-    public StockController(InMemoryStoreConfig.Store store) {
+    public StockController(@Qualifier("stockStore") Store<UUID, Stock> store) {
         this.store = store;
     }
 
@@ -38,13 +54,28 @@ public class StockController implements ControllerFacade<Stock> {
      * the operation is success, would return newly created instance encapsulated
      * with {@link Response} class.
      *
-     * @param stock instance of {@link Stock} which needed to be stored in the store.
+     * @param stock   instance of {@link Stock} which needed to be stored in the store.
+     * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @PostMapping(consumes = APPLICATION_JSON_VALUE, produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @PostMapping(consumes = APPLICATION_JSON_VALUE, produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
-    public @NotNull ResponseEntity<Response<Stock>> create(@NotNull Stock stock) {
-        return null;
+    public @NotNull ResponseEntity<Response<Stock>> create(@NotNull @RequestBody Stock stock,
+                                                           @NotNull HttpServletRequest request) {
+        var opStock = store.insert(stock);
+
+        return opStock.map(value -> ResponseEntity.status(HttpStatus.CREATED)
+                        .body(buildResponse(request,
+                                HttpStatus.CREATED,
+                                "Stock created with id '%s'".formatted(value.id()),
+                                1,
+                                value)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(buildResponse(request,
+                                HttpStatus.BAD_REQUEST,
+                                "Stock id provided already exists: %s. Id should be removed".formatted(stock.id()),
+                                0,
+                                stock)));
     }
 
     /**
@@ -52,18 +83,34 @@ public class StockController implements ControllerFacade<Stock> {
      * the operation is success, would return updated instance encapsulated with
      * {@link Response} class.
      *
-     * @param id    instance of {@link String} which denotes the entity id in the
-     *              store.
-     * @param stock instance of {@link Stock} which needed to be updated in the store.
+     * @param id      instance of {@link String} which denotes the entity id in the
+     *                store.
+     * @param stock   instance of {@link Stock} which needed to be updated in the store.
+     * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
     @PutMapping(path = "/{id}", consumes = APPLICATION_JSON_VALUE, produces = {
-            APPLICATION_XML_VALUE,
-            APPLICATION_JSON_VALUE
+            APPLICATION_JSON_VALUE,
+            APPLICATION_XML_VALUE
     })
     @Override
-    public @NotNull ResponseEntity<Response<Stock>> update(@NotNull @PathVariable String id, @NotNull Stock stock) {
-        return null;
+    public @NotNull ResponseEntity<Response<Stock>> update(@NotNull @PathVariable String id,
+                                                           @NotNull @RequestBody Stock stock,
+                                                           @NotNull HttpServletRequest request) {
+        var opStock = store.update(UUID.fromString(id), stock);
+
+        return opStock.map(value -> ResponseEntity.status(HttpStatus.OK)
+                        .body(buildResponse(request,
+                                HttpStatus.OK,
+                                "Stock modified with id '%s'".formatted(id),
+                                1,
+                                value)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(buildResponse(request,
+                                HttpStatus.NOT_FOUND,
+                                "Cannot find the stock for id '%s'. Stock not modified".formatted(stock.id()),
+                                0,
+                                stock)));
     }
 
     /**
@@ -71,13 +118,33 @@ public class StockController implements ControllerFacade<Stock> {
      * If the operation is success, would return respective {@link Stock} instance
      * encapsulated with {@link Response} class.
      *
-     * @param id instance of {@link String} which denotes the entity id in the store.
+     * @param id      instance of {@link String} which denotes the entity id in the store.
+     * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @GetMapping(path = "/{id}", produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @GetMapping(path = "/{id}", produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
-    public @NotNull ResponseEntity<Response<Stock>> single(@NotNull @PathVariable String id) {
-        return null;
+    public @NotNull ResponseEntity<Response<Stock>> single(@NotNull @PathVariable String id,
+                                                           @NotNull HttpServletRequest request) {
+        var stocks = store.select(UUID.fromString(id))
+                .stream()
+                .toList();
+
+        if (stocks.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(buildResponse(request,
+                            HttpStatus.NO_CONTENT,
+                            "No stock is available for the id '%s' to retrieve".formatted(id),
+                            0,
+                            stocks));
+        } else {
+            return ResponseEntity.ok(
+                    buildResponse(request,
+                            HttpStatus.OK,
+                            "Number of stocks retrieved for id '%s': %d".formatted(id, stocks.size()),
+                            stocks.size(),
+                            stocks));
+        }
     }
 
     /**
@@ -85,12 +152,20 @@ public class StockController implements ControllerFacade<Stock> {
      * If the operation is success, would return all the instances encapsulated with
      * {@link Response} class.
      *
+     * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @GetMapping(produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @GetMapping(produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
-    public @NotNull ResponseEntity<Response<List<Stock>>> all() {
-        return null;
+    public @NotNull ResponseEntity<Response<Stock>> all(@NotNull HttpServletRequest request) {
+        var stocks = store.select();
+
+        return ResponseEntity.ok(
+                buildResponse(request,
+                        HttpStatus.OK,
+                        "Number of stocks retrieved: %d".formatted(stocks.size()),
+                        stocks.size(),
+                        stocks));
     }
 
     /**
@@ -98,12 +173,27 @@ public class StockController implements ControllerFacade<Stock> {
      * If the operation is success, would return deleted instance encapsulated with
      * {@link Response} class.
      *
-     * @param id instance of {@link String} which denotes the entity id in the store.
+     * @param id      instance of {@link String} which denotes the entity id in the store.
+     * @param request instance of {@link HttpServletRequest} to derive request details.
      * @return an instance of {@link Response} wrapped with {@link ResponseEntity}.
      */
-    @DeleteMapping(path = "/{id}", produces = {APPLICATION_XML_VALUE, APPLICATION_JSON_VALUE})
+    @DeleteMapping(path = "/{id}", produces = {APPLICATION_JSON_VALUE, APPLICATION_XML_VALUE})
     @Override
-    public @NotNull ResponseEntity<Response<Stock>> delete(@NotNull @PathVariable String id) {
-        return null;
+    public @NotNull ResponseEntity<Response<Stock>> delete(@NotNull @PathVariable String id,
+                                                           @NotNull HttpServletRequest request) {
+        var opStock = store.delete(UUID.fromString(id));
+
+        return opStock.map(value -> ResponseEntity.status(HttpStatus.ACCEPTED)
+                        .body(buildResponse(request,
+                                HttpStatus.ACCEPTED,
+                                "Stock deleted for id '%s'".formatted(id),
+                                1,
+                                value)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(buildResponse(request,
+                                HttpStatus.NOT_FOUND,
+                                "Cannot find the stock for id '%s'. Stock not deleted".formatted(id),
+                                0,
+                                List.of())));
     }
 }

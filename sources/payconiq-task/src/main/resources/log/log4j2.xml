@@ -1,3 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
+    <Properties>
+        <Property name="directory" value="logs/"/>
+        <Property name="file" value="application-op"/>
+    </Properties>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout>
+                <Pattern>
+                    %d{ISO8601} %5p ${hostName} --- [%15.15t] %-40.40c{1.} : %msg%n%throwable
+                </Pattern>
+            </PatternLayout>
+        </Console>
+        <RollingFile name="RollingLog"
+                     fileName="${directory}/${file}.log"
+                     filePattern="${directory}/${file}.%d{yyyy-MM-dd}-%i.log.gz"
+                     ignoreExceptions="false">
+            <PatternLayout>
+                <Pattern>
+                    %d{ISO8601} %5p ${hostName} --- [%t] %c : %msg%n%throwable
+                </Pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="1GB"/>
+                <TimeBasedTriggeringPolicy/>
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Logger name="com.payconiq.geektastic" level="TRACE" additivity="true">
+            <AppenderRef ref="RollingLog"/>
+        </Logger>
+        <Root level="INFO" additivity="true">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
 </Configuration>

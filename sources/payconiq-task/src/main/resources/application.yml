@@ -4,3 +4,6 @@ spring:
 server:
   servlet:
     context-path: /api
+
+logging:
+  config: classpath:log/log4j2.xml

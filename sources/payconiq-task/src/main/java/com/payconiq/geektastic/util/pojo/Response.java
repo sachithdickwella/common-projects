@@ -6,6 +6,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 
 import javax.servlet.http.HttpServletRequest;
@@ -41,9 +42,9 @@ public record Response<T>(
         @NotNull
         @JacksonXmlProperty(localName = "message")
         String message,
-        @NotNull
+        @Nullable
         Integer count,
-        @NotNull
+        @Nullable
         @JacksonXmlElementWrapper(localName = "payload")
         @JacksonXmlProperty(localName = "item")
         List<T> payload) {
@@ -92,8 +93,8 @@ public record Response<T>(
     public static <T> Response<T> buildResponse(@NotNull HttpServletRequest request,
                                                 @NotNull HttpStatus status,
                                                 @NotNull String message,
-                                                @NotNull Integer count,
-                                                @NotNull List<T> payload) {
+                                                @Nullable Integer count,
+                                                @Nullable List<T> payload) {
         return new Response<>(LocalDateTime.now(),
                 request.getRequestURI(),
                 status.value(),

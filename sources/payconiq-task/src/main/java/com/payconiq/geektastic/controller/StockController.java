@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static com.payconiq.geektastic.util.pojo.Response.buildResponse;
@@ -74,7 +73,7 @@ public class StockController implements ControllerFacade<Stock> {
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(buildResponse(request,
                                 HttpStatus.BAD_REQUEST,
-                                "Stock id provided already exists: %s. Id should be removed.".formatted(stock.id()),
+                                "Stock id provided already exists: %s. Id should be removed".formatted(stock.id()),
                                 0,
                                 stock)));
     }
@@ -103,13 +102,13 @@ public class StockController implements ControllerFacade<Stock> {
         return opStock.map(value -> ResponseEntity.status(HttpStatus.OK)
                         .body(buildResponse(request,
                                 HttpStatus.OK,
-                                "Stock modified with id '%s'.".formatted(id),
+                                "Stock modified with id '%s'".formatted(id),
                                 1,
                                 value)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(buildResponse(request,
                                 HttpStatus.NOT_FOUND,
-                                "Cannot find the stock for id '%s'. Stock not modified.".formatted(stock.id()),
+                                "Cannot find the stock for id '%s'. Stock not modified".formatted(stock.id()),
                                 0,
                                 stock)));
     }
@@ -135,14 +134,14 @@ public class StockController implements ControllerFacade<Stock> {
             return ResponseEntity.status(HttpStatus.OK)
                     .body(buildResponse(request,
                             HttpStatus.NO_CONTENT,
-                            "No stock is available for the id '%s' to retrieve.".formatted(id),
+                            "No stock is available for the id '%s' to retrieve".formatted(id),
                             0,
                             stocks));
         } else {
             return ResponseEntity.ok(
                     buildResponse(request,
                             HttpStatus.OK,
-                            "Number of stocks retrieved for id '%s': %d.".formatted(id, stocks.size()),
+                            "Number of stocks retrieved for id '%s': %d".formatted(id, stocks.size()),
                             stocks.size(),
                             stocks));
         }
@@ -164,7 +163,7 @@ public class StockController implements ControllerFacade<Stock> {
         return ResponseEntity.ok(
                 buildResponse(request,
                         HttpStatus.OK,
-                        "Number of stocks retrieved: %d.".formatted(stocks.size()),
+                        "Number of stocks retrieved: %d".formatted(stocks.size()),
                         stocks.size(),
                         stocks));
     }
@@ -187,13 +186,13 @@ public class StockController implements ControllerFacade<Stock> {
         return opStock.map(value -> ResponseEntity.status(HttpStatus.ACCEPTED)
                         .body(buildResponse(request,
                                 HttpStatus.ACCEPTED,
-                                "Stock deleted for id '%s'.".formatted(id),
+                                "Stock deleted for id '%s'".formatted(id),
                                 1,
                                 value)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(buildResponse(request,
                                 HttpStatus.NOT_FOUND,
-                                "Cannot find the stock for id '%s'. Stock not deleted.".formatted(id),
+                                "Cannot find the stock for id '%s'. Stock not deleted".formatted(id),
                                 0,
                                 List.of())));
     }

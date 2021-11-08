@@ -93,16 +93,31 @@ public class StockController extends ResponseHandler<Stock, Response<Stock>> imp
                                                            @NotNull HttpServletRequest request) {
         var opStock = store.update(UUID.fromString(id), stock);
 
-        return opStock.map(value -> handle(() -> createResponse(request,
+        return opStock.map(value -> {
+            if (Boolean.TRUE.equals(value.getLocked())) {
+                return handle(() -> createResponse(request,
+                        HttpStatus.NOT_ACCEPTABLE,
+                        "Update failed on locked stock for id '%s'. Try again later".formatted(id),
+                        0,
+                        value));
+            } else if (Boolean.TRUE.equals(value.getLockFailed())) {
+                return handle(() -> createResponse(request,
+                        HttpStatus.NOT_ACCEPTABLE,
+                        "Update cannot acquire lock on stock for id '%s'. Try again later".formatted(id),
+                        0,
+                        value));
+            } else {
+                return handle(() -> createResponse(request,
                         HttpStatus.OK,
                         "Stock modified with id '%s'".formatted(id),
                         1,
-                        value)))
-                .orElseGet(() -> handle(() -> createResponse(request,
-                        HttpStatus.NOT_FOUND,
-                        "Cannot find the stock for id '%s'. Stock not modified".formatted(id),
-                        0,
-                        List.of())));
+                        value));
+            }
+        }).orElseGet(() -> handle(() -> createResponse(request,
+                HttpStatus.NOT_FOUND,
+                "Cannot find the stock for id '%s'. Stock not modified".formatted(id),
+                0,
+                List.of())));
     }
 
     /**
@@ -172,15 +187,24 @@ public class StockController extends ResponseHandler<Stock, Response<Stock>> imp
                                                            @NotNull HttpServletRequest request) {
         var opStock = store.delete(UUID.fromString(id));
 
-        return opStock.map(value -> handle(() -> createResponse(request,
+        return opStock.map(value -> {
+            if (Boolean.TRUE.equals(value.getLocked())) {
+                return handle(() -> createResponse(request,
+                        HttpStatus.NOT_ACCEPTABLE,
+                        "Delete failed on locked stock for id '%s'. Try again later".formatted(id),
+                        0,
+                        value));
+            } else {
+                return handle(() -> createResponse(request,
                         HttpStatus.ACCEPTED,
                         "Stock deleted for id '%s'".formatted(id),
                         1,
-                        value)))
-                .orElseGet(() -> handle(() -> createResponse(request,
-                        HttpStatus.NOT_FOUND,
-                        "Cannot find the stock for id '%s'. Stock not deleted".formatted(id),
-                        0,
-                        List.of())));
+                        value));
+            }
+        }).orElseGet(() -> handle(() -> createResponse(request,
+                HttpStatus.NOT_FOUND,
+                "Cannot find the stock for id '%s'. Stock not deleted".formatted(id),
+                0,
+                List.of())));
     }
 }

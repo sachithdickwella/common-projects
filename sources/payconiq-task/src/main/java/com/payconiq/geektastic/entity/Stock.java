@@ -26,24 +26,26 @@ import static java.lang.String.valueOf;
 @Data
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 @JsonIgnoreProperties(ignoreUnknown = true)
-@JsonPropertyOrder({"id", "name", "currency", "price", "quantity", "createDateTime", "lastUpdatedDateTime"})
+@JsonPropertyOrder({
+        "id", "name", "currency", "price", "quantity", "createDateTime", "lastUpdatedDateTime", "locked"
+})
 public class Stock extends Entity {
 
     /**
-     * {@link String} to denote stock name
+     * {@link String} to denote stock name.
      */
     private String name;
     /**
-     * {@link String} to denote currency of the price
+     * {@link String} to denote currency of the price.
      */
     private String currency;
     /**
-     * instance of {@link Double} to denote stock's unit
+     * Instance of {@link Double} to denote stock's unit
      * price.
      */
     private Double price;
     /**
-     * instance of {@link Integer} to denote stock's item
+     * Instance of {@link Integer} to denote stock's item
      * quantity.
      */
     private Integer quantity;

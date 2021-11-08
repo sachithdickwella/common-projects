@@ -19,6 +19,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,6 +48,10 @@ public class StockStore implements Store<UUID, Stock> {
      */
     private final LockingHandler<Stock> lockingHandler;
     /**
+     *
+     */
+    private final ReentrantReadWriteLock lock;
+    /**
      * Encapsulated base {@link Map} to implement store behaviour with common
      * CRUD operations.
      */
@@ -59,10 +64,15 @@ public class StockStore implements Store<UUID, Stock> {
     private ClassPathResource resource;
 
     /**
+     * Single-args constructor to initialize {@code ScheduledTask} with {@link LockingHandler}
+     * instance which includes the locker.
      *
+     * @param lockingHandler instance from the {@link java.beans.beancontext.BeanContext} to
+     *                       initialize local member {@link #lockingHandler}.
      */
     public StockStore(@NotNull LockingHandler<Stock> lockingHandler) {
         this.lockingHandler = lockingHandler;
+        this.lock = new ReentrantReadWriteLock(false);
     }
 
     /**
@@ -136,6 +146,8 @@ public class StockStore implements Store<UUID, Stock> {
             stock.setId(UUID.randomUUID());
             stock.setCreateDateTime(now);
             stock.setLastUpdatedDateTime(now);
+            stock.setLocked(null);
+            stock.setLockFailed(null);
 
             store.put(stock.getId(), stock);
             return Optional.of(stock);
@@ -154,29 +166,37 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @Override
     public Optional<Stock> update(@NotNull UUID id, @NotNull Stock stock) {
-        Optional<Stock> opStock = select(id);
-        if (opStock.isPresent()) {
-            Stock original = opStock.get();
-            if (lockingHandler.contains(original)) {
-                // TODO - Return when the locker already have the value.
-                return null;
-            } else {
+        var writeLock = lock.writeLock();
+        try {
+            writeLock.lock();
+
+            var opStock = select(id);
+            if (opStock.isPresent()) {
+                var original = opStock.get();
                 stock.setId(original.getId());
                 stock.setCreateDateTime(original.getCreateDateTime());
                 stock.setLastUpdatedDateTime(LocalDateTime.now());
 
-                if (lockingHandler.offer(stock)) {
-                    store.put(id, stock);
-
-                    LOGGER.info("Update lock acquired: {}", stock);
-                    return Optional.of(stock);
+                if (lockingHandler.contains(original)) {
+                    stock.setLocked(true);
                 } else {
-                    // TODO - Return when the locker offer failed.
-                    return null;
+                    if (lockingHandler.offer(stock)) {
+                        stock.setLocked(null);
+                        stock.setLockFailed(null);
+
+                        store.put(id, stock);
+                        LOGGER.info("Update lock acquired: {}", stock);
+                    } else {
+                        stock.setLocked(false);
+                        stock.setLockFailed(true);
+                    }
                 }
+                return Optional.of(stock);
+            } else {
+                return opStock;
             }
-        } else {
-            return opStock;
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -191,11 +211,12 @@ public class StockStore implements Store<UUID, Stock> {
     @NotNull
     @Override
     public Optional<Stock> delete(@NotNull UUID id) {
-        Optional<Stock> opStock = select(id);
+        var opStock = select(id);
         if (opStock.isPresent()) {
-            if (lockingHandler.contains(opStock.get())) {
-                // TODO - Return when the stock still in locker.
-                return null;
+            var stock = opStock.get();
+            if (lockingHandler.contains(stock)) {
+                stock.setLocked(true);
+                return Optional.of(stock);
             } else {
                 return Optional.ofNullable(store.remove(id));
             }
@@ -242,8 +263,8 @@ public class StockStore implements Store<UUID, Stock> {
     private Stock lineToStock(@NotNull String[] line) {
         var formatter = CONST_DEFAULT_DATETIME_FORMAT.instance(DateTimeFormatter.class);
 
-        String price = line[3];
-        String quantity = line[4];
+        var price = line[3];
+        var quantity = line[4];
 
         return new Stock(
                 UUID.fromString(line[0]),

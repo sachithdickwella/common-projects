@@ -218,7 +218,10 @@ public class StockStore implements Store<UUID, Stock> {
                 stock.setLocked(true);
                 return Optional.of(stock);
             } else {
-                return Optional.ofNullable(store.remove(id));
+                var removed = store.remove(id);
+                if (removed != null) removed.setLocked(null);
+
+                return Optional.ofNullable(removed);
             }
         } else {
             return Optional.empty();

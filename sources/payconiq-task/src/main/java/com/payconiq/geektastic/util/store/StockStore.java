@@ -129,13 +129,14 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @Override
     public Optional<Stock> insert(@NotNull Stock stock) {
-        if (store.containsKey(stock.id())) {
+        if (stock.id() != null && store.containsKey(stock.id())) {
             return Optional.empty();
         } else {
             var now = LocalDateTime.now();
             stock = stock.enrich(UUID.randomUUID(), now, now);
 
-            return Optional.ofNullable(store.put(stock.id(), stock));
+            store.put(stock.id(), stock);
+            return Optional.of(stock);
         }
     }
 
@@ -162,7 +163,8 @@ public class StockStore implements Store<UUID, Stock> {
                     Objects.requireNonNull(LocalDateTime.now(),
                             "Last updated date time from the store is null: %s".formatted(original)));
 
-            return Optional.ofNullable(store.put(id, enriched));
+            store.put(id, enriched);
+            return Optional.of(enriched);
         } else {
             return opStock;
         }

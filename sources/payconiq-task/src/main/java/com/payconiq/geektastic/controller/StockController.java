@@ -34,12 +34,11 @@ public class StockController extends ResponseHandler<Stock, Response<Stock>> imp
     private final Store<UUID, Stock> store;
 
     /**
-     * Single-args public constructor to initialize local instance
-     * members with injected beans from bean context.
+     * Single-args public constructor to initialize local instance members with injected
+     * beans from bean context.
      *
-     * @param store instance injected by bean context. Annotation
-     *              {@link Qualifier} not mandatory since only one
-     *              {@link Store} bean is registered.
+     * @param store instance injected by bean context. Annotation {@link Qualifier} not
+     *              mandatory since only one {@link Store} bean is registered.
      */
     public StockController(@Qualifier("stockStore") Store<UUID, Stock> store) {
         super(LogManager.getLogger(StockController.class));
@@ -63,12 +62,12 @@ public class StockController extends ResponseHandler<Stock, Response<Stock>> imp
 
         return opStock.map(value -> handle(() -> createResponse(request,
                         HttpStatus.CREATED,
-                        "Stock created with id '%s'".formatted(value.id()),
+                        "Stock created with id '%s'".formatted(value.getId()),
                         1,
                         value)))
                 .orElseGet(() -> handle(() -> createResponse(request,
                         HttpStatus.BAD_REQUEST,
-                        "Stock id provided already exists: %s. 'Id' should be removed".formatted(stock.id()),
+                        "Stock id provided already exists: %s. 'Id' should be removed".formatted(stock.getId()),
                         0,
                         stock)));
     }
@@ -125,7 +124,7 @@ public class StockController extends ResponseHandler<Stock, Response<Stock>> imp
 
         if (stocks.isEmpty()) {
             return handle(() -> Response.createResponse(request,
-                    HttpStatus.NO_CONTENT,
+                    HttpStatus.NOT_FOUND,
                     "No stock is available for the id '%s' to retrieve".formatted(id),
                     0,
                     stocks));

@@ -1,11 +1,11 @@
 package com.payconiq.geektastic.util.store;
 
 import com.payconiq.geektastic.entity.Stock;
+import com.payconiq.geektastic.util.LockingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -18,8 +18,8 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,7 +35,6 @@ import static java.util.stream.Collectors.joining;
  *
  * @version 1.0.0
  */
-@PropertySource("classpath:store-config.properties")
 @Component("stockStore")
 public class StockStore implements Store<UUID, Stock> {
 
@@ -43,6 +42,15 @@ public class StockStore implements Store<UUID, Stock> {
      * Static final Log4j logging instance for {@code StockStore} class.
      */
     private static final Logger LOGGER = LogManager.getLogger(StockStore.class);
+    /**
+     * Instance of {@link LockingHandler}, wrapper for locker of entities to block
+     * abusive updates.
+     */
+    private final LockingHandler<Stock> lockingHandler;
+    /**
+     *
+     */
+    private final ReentrantReadWriteLock lock;
     /**
      * Encapsulated base {@link Map} to implement store behaviour with common
      * CRUD operations.
@@ -54,16 +62,18 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @Value("${classpath:store/stock-store.csv}")
     private ClassPathResource resource;
+
     /**
-     * Locking time period from the properties as an {@link Integer} value.
+     * Single-args constructor to initialize {@code ScheduledTask} with {@link LockingHandler}
+     * instance which includes the locker.
+     *
+     * @param lockingHandler instance from the {@link java.beans.beancontext.BeanContext} to
+     *                       initialize local member {@link #lockingHandler}.
      */
-    @Value("#{T(Integer).parseInt('${app.datasource.lock.time}')}")
-    private int lockTime;
-    /**
-     * Locking time period unit from the properties as a {@link ChronoUnit} value.
-     */
-    @Value("#{T(java.time.temporal.ChronoUnit).valueOf('${app.datasource.lock.time.unit}'.toUpperCase())}")
-    private ChronoUnit lockTimeUnit;
+    public StockStore(@NotNull LockingHandler<Stock> lockingHandler) {
+        this.lockingHandler = lockingHandler;
+        this.lock = new ReentrantReadWriteLock(false);
+    }
 
     /**
      * Lifecycle method to perform operation during bean creation.
@@ -78,7 +88,7 @@ public class StockStore implements Store<UUID, Stock> {
                     .parallel()
                     .map(line -> line.split(","))
                     .map(this::lineToStock)
-                    .collect(Collectors.toMap(Stock::id, stock -> stock));
+                    .collect(Collectors.toConcurrentMap(Stock::getId, stock -> stock));
             LOGGER.info("StockStore loading to memory is completed with {} dataset in {}ms",
                     resource,
                     currentTimeMillis() - start);
@@ -129,13 +139,18 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @Override
     public Optional<Stock> insert(@NotNull Stock stock) {
-        if (store.containsKey(stock.id())) {
+        if (stock.getId() != null && store.containsKey(stock.getId())) {
             return Optional.empty();
         } else {
             var now = LocalDateTime.now();
-            stock = stock.enrich(UUID.randomUUID(), now, now);
+            stock.setId(UUID.randomUUID());
+            stock.setCreateDateTime(now);
+            stock.setLastUpdatedDateTime(now);
+            stock.setLocked(null);
+            stock.setLockFailed(null);
 
-            return Optional.ofNullable(store.put(stock.id(), stock));
+            store.put(stock.getId(), stock);
+            return Optional.of(stock);
         }
     }
 
@@ -151,20 +166,37 @@ public class StockStore implements Store<UUID, Stock> {
      */
     @Override
     public Optional<Stock> update(@NotNull UUID id, @NotNull Stock stock) {
-        Optional<Stock> opStock = select(id);
-        if (opStock.isPresent()) {
-            Stock original = opStock.get();
-            Stock enriched = stock.enrich(
-                    Objects.requireNonNull(original.id(),
-                            "Id from the store is null: %s".formatted(original)),
-                    Objects.requireNonNull(original.createDateTime(),
-                            "Created date time from the store is null: %s".formatted(original)),
-                    Objects.requireNonNull(LocalDateTime.now(),
-                            "Last updated date time from the store is null: %s".formatted(original)));
+        var writeLock = lock.writeLock();
+        try {
+            writeLock.lock();
 
-            return Optional.ofNullable(store.put(id, enriched));
-        } else {
-            return opStock;
+            var opStock = select(id);
+            if (opStock.isPresent()) {
+                var original = opStock.get();
+                stock.setId(original.getId());
+                stock.setCreateDateTime(original.getCreateDateTime());
+                stock.setLastUpdatedDateTime(LocalDateTime.now());
+
+                if (lockingHandler.contains(original)) {
+                    stock.setLocked(true);
+                } else {
+                    if (lockingHandler.offer(stock)) {
+                        stock.setLocked(null);
+                        stock.setLockFailed(null);
+
+                        store.put(id, stock);
+                        LOGGER.info("Update lock acquired: {}", stock);
+                    } else {
+                        stock.setLocked(false);
+                        stock.setLockFailed(true);
+                    }
+                }
+                return Optional.of(stock);
+            } else {
+                return opStock;
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -172,14 +204,28 @@ public class StockStore implements Store<UUID, Stock> {
      * Delete operation handler for the store. Only handle single entry
      * at a time.
      *
-     * @param key of the value which needs to be removed from the {@link #store}.
+     * @param id of the value which needs to be removed from the {@link #store}.
      * @return {@link Stock} value which recently deleted from the store. Return
      * value is wrapped with {@link Optional} hence possibility of null value.
      */
     @NotNull
     @Override
-    public Optional<Stock> delete(@NotNull UUID key) {
-        return Optional.ofNullable(store.remove(key));
+    public Optional<Stock> delete(@NotNull UUID id) {
+        var opStock = select(id);
+        if (opStock.isPresent()) {
+            var stock = opStock.get();
+            if (lockingHandler.contains(stock)) {
+                stock.setLocked(true);
+                return Optional.of(stock);
+            } else {
+                var removed = store.remove(id);
+                if (removed != null) removed.setLocked(null);
+
+                return Optional.ofNullable(removed);
+            }
+        } else {
+            return Optional.empty();
+        }
     }
 
     /**
@@ -220,8 +266,8 @@ public class StockStore implements Store<UUID, Stock> {
     private Stock lineToStock(@NotNull String[] line) {
         var formatter = CONST_DEFAULT_DATETIME_FORMAT.instance(DateTimeFormatter.class);
 
-        String price = line[3];
-        String quantity = line[4];
+        var price = line[3];
+        var quantity = line[4];
 
         return new Stock(
                 UUID.fromString(line[0]),
@@ -231,16 +277,5 @@ public class StockStore implements Store<UUID, Stock> {
                 !quantity.isBlank() && !price.equalsIgnoreCase("null") ? parseInt(line[4]) : 0,
                 LocalDateTime.parse(line[5], formatter),
                 LocalDateTime.parse(line[6], formatter));
-    }
-
-    /**
-     * Determine if the {@link Stock}'s last updated date time is within the locking
-     * period and return {@code true}, else return {@code false}.
-     *
-     * @param stock instance of {@link Stock} to be validated for locking.
-     * @return a {@code boolean} value whether the stock is locked or not.
-     */
-    private boolean isLocked(@NotNull Stock stock) {
-        return LocalDateTime.now().isAfter(stock.lastUpdatedDateTime().plus(lockTime, lockTimeUnit));
     }
 }

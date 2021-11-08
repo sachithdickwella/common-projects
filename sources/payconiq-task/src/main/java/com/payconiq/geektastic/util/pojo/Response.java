@@ -63,11 +63,11 @@ public record Response<T>(
      * the upstream.
      */
     @NotNull
-    public static <T> Response<T> buildResponse(@NotNull HttpServletRequest request,
-                                                @NotNull HttpStatus status,
-                                                @NotNull String message,
-                                                @NotNull Integer count,
-                                                @NotNull T payload) {
+    public static <T> Response<T> createResponse(@NotNull HttpServletRequest request,
+                                                 @NotNull HttpStatus status,
+                                                 @NotNull String message,
+                                                 @NotNull Integer count,
+                                                 @NotNull T payload) {
         return new Response<>(LocalDateTime.now(),
                 request.getRequestURI(),
                 status.value(),
@@ -90,11 +90,11 @@ public record Response<T>(
      * the upstream.
      */
     @NotNull
-    public static <T> Response<T> buildResponse(@NotNull HttpServletRequest request,
-                                                @NotNull HttpStatus status,
-                                                @NotNull String message,
-                                                @Nullable Integer count,
-                                                @Nullable List<T> payload) {
+    public static <T> Response<T> createResponse(@NotNull HttpServletRequest request,
+                                                 @NotNull HttpStatus status,
+                                                 @NotNull String message,
+                                                 @Nullable Integer count,
+                                                 @Nullable List<T> payload) {
         return new Response<>(LocalDateTime.now(),
                 request.getRequestURI(),
                 status.value(),

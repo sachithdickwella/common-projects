@@ -3,6 +3,7 @@ package com.payconiq.geektastic;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
 /**
  * Entrypoint of the program which contains the {@code main(String[])}
@@ -10,6 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
  * @version 1.0.0
  */
+@EnableWebSecurity
 @EnableScheduling
 @SpringBootApplication
 public class Main {

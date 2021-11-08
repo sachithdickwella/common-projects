@@ -26,11 +26,6 @@ import static com.payconiq.geektastic.util.pojo.Response.createResponse;
 public class ResponseExceptionHandler extends ResponseHandler<Void, Response<Void>> {
 
     /**
-     * Static final Log4j logging instance for {@code StockStore} class.
-     */
-    private static final Logger LOGGER = LogManager.getLogger(ResponseExceptionHandler.class);
-
-    /**
      * No-args constructor to initialize abstract super-class with {@code Logger}
      * instance for response logging.
      */
@@ -54,7 +49,7 @@ public class ResponseExceptionHandler extends ResponseHandler<Void, Response<Voi
     })
     public ResponseEntity<Response<Void>> handleInvalidIdAndNull(@NotNull RuntimeException ex,
                                                                  @NotNull HttpServletRequest request) {
-        LOGGER.error("Exception caught on global exception mapper", ex);
+        logger.error("Exception caught on global exception mapper", ex);
         return handle(() -> createResponse(request, HttpStatus.BAD_REQUEST, ex.getMessage(), null, null));
     }
 }

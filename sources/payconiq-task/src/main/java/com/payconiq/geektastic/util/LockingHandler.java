@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  *
  * @version 1.0.0
  */
-@PropertySource("classpath:store-config.properties")
+@PropertySource("classpath:custom-config.properties")
 @Component
 public class LockingHandler<T extends Entity> {
 

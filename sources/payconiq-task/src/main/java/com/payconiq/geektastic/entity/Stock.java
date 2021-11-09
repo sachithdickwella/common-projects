@@ -51,20 +51,37 @@ public class Stock extends Entity {
     private Integer quantity;
 
     /**
-     * All-args constructor to implement immutability using builder pattern with lombok.
+     * All-args constructor to initialize object without the super-class attributes.
+     *
+     * Note: This constructor only being used in testing.
+     *
+     * @param name     instance of {@link String} to denote stock name.
+     * @param currency instance of {@link String} to denote currency of the price.
+     * @param price    instance of {@link Double} to denote stock's unit price.
+     * @param quantity instance of {@link Integer} to denote stock's item quantity.
+     */
+    public Stock(@Nullable String name,
+                 @Nullable String currency,
+                 @Nullable Double price,
+                 @Nullable Integer quantity) {
+        this.name = name;
+        this.currency = currency;
+        this.price = price;
+        this.quantity = quantity;
+    }
+
+    /**
+     * All-args constructor to initialize object with all the super-class attributes as well.
      *
      * @param id                  instance of {@link UUID} to denote stock id.
      * @param name                instance of {@link String} to denote stock name.
-     * @param currency            instance of {@link String} to denote currency of
-     *                            the price.
-     * @param price               instance of {@link Double} to denote stock's unit
-     *                            price.
-     * @param quantity            instance of {@link Integer} to denote stock's item
-     *                            quantity.
-     * @param createDateTime      instance of {@link LocalDateTime} to specify stock
-     *                            created date and time.
-     * @param lastUpdatedDateTime instance of {@link LocalDateTime} to specify stock
-     *                            last updated date time.
+     * @param currency            instance of {@link String} to denote currency of the price.
+     * @param price               instance of {@link Double} to denote stock's unit price.
+     * @param quantity            instance of {@link Integer} to denote stock's item quantity.
+     * @param createDateTime      instance of {@link LocalDateTime} to specify stock created
+     *                            date and time.
+     * @param lastUpdatedDateTime instance of {@link LocalDateTime} to specify stock last updated
+     *                            date time.
      */
     public Stock(@NotNull UUID id,
                  @NotNull String name,

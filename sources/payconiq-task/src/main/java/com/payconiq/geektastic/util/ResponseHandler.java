@@ -45,7 +45,7 @@ public abstract class ResponseHandler<V, T extends Response<V>> {
         var type = supplier.get();
         var responseEntity = ResponseEntity.status(HttpStatus.valueOf(type.status())).body(type);
 
-        logger.info("Out response : {}", responseEntity);
+        logger.info("Response : {}", responseEntity);
         return responseEntity;
     }
 }

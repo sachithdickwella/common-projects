@@ -1,5 +1,6 @@
 package com.payconiq.geektastic.util.pojo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -32,8 +34,9 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Response<T>(
         @NotNull
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")
         @JacksonXmlProperty(localName = "timestamp")
-        LocalDateTime timestamp,
+        ZonedDateTime timestamp,
         @NotNull
         @JacksonXmlProperty(localName = "path")
         String path,
@@ -68,7 +71,7 @@ public record Response<T>(
                                                  @NotNull String message,
                                                  @NotNull Integer count,
                                                  @NotNull T payload) {
-        return new Response<>(LocalDateTime.now(),
+        return new Response<>(ZonedDateTime.now(),
                 request.getRequestURI(),
                 status.value(),
                 message,
@@ -95,7 +98,7 @@ public record Response<T>(
                                                  @NotNull String message,
                                                  @Nullable Integer count,
                                                  @Nullable List<T> payload) {
-        return new Response<>(LocalDateTime.now(),
+        return new Response<>(ZonedDateTime.now(),
                 request.getRequestURI(),
                 status.value(),
                 message,

@@ -1,5 +1,6 @@
 package com.payconiq.geektastic;
 
+import com.payconiq.geektastic.config.CommonTestConfig;
 import com.payconiq.geektastic.controller.StockController;
 import com.payconiq.geektastic.entity.Stock;
 import com.payconiq.geektastic.util.pojo.Response;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -38,9 +40,15 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("StockController Test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Import(CommonTestConfig.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class StockControllerTest {
 
+    /**
+     * Valid UUID as a {@link String}, but missing in the datastore to test some
+     * negative scenarios.
+     */
+    private static final String MISSING_ID = "de95ca16-6e21-4fe8-a8db-9ca527911aa1";
     /**
      * Username for application authentication.
      */
@@ -73,9 +81,14 @@ class StockControllerTest {
     private URI uri;
     /**
      * Instance of {@link UUID} to check same stock between multiple test
-     * scenarios.
+     * scenarios and finally test lock scenarios.
      */
-    private UUID id;
+    private UUID idToLock;
+    /**
+     * Instance of {@link UUID} to check same stock between multiple test
+     * scenarios and finally test delete scenario.
+     */
+    private UUID idToDelete;
 
     /**
      * Setup pre-testing environment for {@link StockController} testing.
@@ -122,7 +135,7 @@ class StockControllerTest {
         assertNotNull(body.payload(), "Response body payload is null");
         assertEquals(1, body.payload().size());
 
-        id = body.payload().get(0).getId();
+        idToLock = body.payload().get(0).getId();
     }
 
     /**
@@ -133,7 +146,7 @@ class StockControllerTest {
     @Test
     void creatShouldFailIfCreatedWithAuthJsonContentWithExistingId() {
         var invalidStock = stocks.get(0);
-        invalidStock.setId(id);
+        invalidStock.setId(idToLock);
 
         var response = invokeEndpoint("/api/stocks",
                 HttpMethod.POST,
@@ -205,7 +218,7 @@ class StockControllerTest {
         var response = invokeEndpoint("/api/stocks/{id}",
                 HttpMethod.GET,
                 null,
-                Map.of("id", id),
+                Map.of("id", idToLock),
                 new ParameterizedTypeReference<Response<Stock>>() {
                 });
 
@@ -240,15 +253,14 @@ class StockControllerTest {
     /**
      *
      */
-    @DisplayName("Should retrieve empty items with auth JSON content by wrong id")
+    @DisplayName("Should retrieve empty items with auth JSON content by missing id")
     @Order(5)
     @Test
-    void shouldRetrieveEmptyIfAuthJsonContentByWrongId() {
-        var missingId = "de95ca16-6e21-4fe8-a8db-9ca527911aa1";
+    void shouldRetrieveEmptyIfAuthJsonContentByMissingId() {
         var response = invokeEndpoint("/api/stocks/{id}",
                 HttpMethod.GET,
                 null,
-                Map.of("id", missingId),
+                Map.of("id", MISSING_ID),
                 new ParameterizedTypeReference<Response<Stock>>() {
                 });
 
@@ -259,7 +271,7 @@ class StockControllerTest {
         assertNotNull(body, "Response body content is null");
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND.value(), body.status());
-        assertEquals("/api/stocks/%s".formatted(missingId), body.path(),
+        assertEquals("/api/stocks/%s".formatted(MISSING_ID), body.path(),
                 "Expected path doesn't match with actual '%s'".formatted(body.path()));
         assertNotNull(body.message());
         assertTrue(body.message().matches(pattern),
@@ -269,6 +281,237 @@ class StockControllerTest {
                 "'body.count()' should be 1");
         assertEquals(body.count(), body.payload().size(),
                 "Counts don't match in response.count and payload.size()");
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should pass if updated with auth JSON content")
+    @Order(6)
+    @Test
+    void updateShouldPassIfUpdatedWithAuthJsonContent() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.PUT,
+                new HttpEntity<>(stocks.get(1)),
+                Map.of("id", idToLock),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK.value(), body.status());
+        assertEquals(uri.getPath(), body.path());
+        assertNotNull(body.message());
+        assertTrue(body.message().matches("^Stock\\smodified\\swith\\sid\\s'[a-fA-F0-9]{0,8}-[a-fA-F0-9]{0,4}" +
+                        "-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'$"),
+                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
+        assertEquals(1, body.count());
+        assertNotNull(body.payload(), "Response body payload is null");
+        assertEquals(1, body.payload().size());
+        assertTrue(equals(stocks.get(1), body.payload().get(0)),
+                "Modified stock not match with update request");
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should fail if updated with auth JSON content by missing id")
+    @Order(7)
+    @Test
+    void updateShouldFailIfUpdatedWithAuthJsonContentWithMissingId() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.PUT,
+                new HttpEntity<>(stocks.get(1)),
+                Map.of("id", MISSING_ID),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND.value(), body.status());
+        assertEquals(uri.getPath(), body.path());
+        assertNotNull(body.message());
+        assertTrue(body.message().matches("^Cannot\\sfind\\sthe\\sstock\\sfor\\sid\\s'[a-fA-F0-9]{0,8}" +
+                        "-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'" +
+                        "\\.\\sStock\\snot\\smodified$"),
+                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
+        assertEquals(0, body.count());
+        assertNotNull(body.payload(), "Response body payload is null");
+        assertEquals(0, body.payload().size());
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should fail if updated with auth JSON content due to lock")
+    @Order(8)
+    @Test
+    void tryUpdateShouldFailIfUpdatedWithAuthJsonContentDueToLock() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.PUT,
+                new HttpEntity<>(stocks.get(2)),
+                Map.of("id", idToLock),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.NOT_ACCEPTABLE, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_ACCEPTABLE.value(), body.status());
+        assertEquals(uri.getPath(), body.path());
+        assertNotNull(body.message());
+        assertTrue(body.message().matches("^Update\\sfailed\\son\\slocked\\sstock\\sfor\\sid\\s'" +
+                        "[a-fA-F0-9]{0,8}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'" +
+                        "\\.\\sTry\\sagain\\slater$"),
+                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
+        assertEquals(0, body.count());
+        assertNotNull(body.payload(), "Response body payload is null");
+        assertEquals(1, body.payload().size());
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should fail if updated with auth JSON content due to locker full")
+    @Order(9)
+    @Test
+    void tryUpdateShouldFailIfUpdatedWithAuthJsonContentDueLockerFull() {
+        var createResponse = invokeEndpoint("/api/stocks",
+                HttpMethod.POST,
+                new HttpEntity<>(stocks.get(3)),
+                null,
+                new ParameterizedTypeReference<>() {
+                });
+
+        var createBody = createResponse.getBody();
+
+        assertNotNull(createBody, "Response body content is null");
+        assertEquals(HttpStatus.CREATED, createResponse.getStatusCode());
+        assertEquals(HttpStatus.CREATED.value(), createBody.status());
+        assertEquals(uri.getPath(), createBody.path());
+        assertEquals(1, createBody.count());
+        assertNotNull(createBody.payload(), "Response body payload is null");
+        assertEquals(1, createBody.payload().size());
+
+        idToDelete = createBody.payload().get(0).getId();
+
+        var updateResponse = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.PUT,
+                new HttpEntity<>(stocks.get(4)),
+                Map.of("id", idToDelete),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var updateBody = updateResponse.getBody();
+
+        assertNotNull(updateBody, "Response body content is null");
+        assertEquals(HttpStatus.NOT_ACCEPTABLE, updateResponse.getStatusCode());
+        assertEquals(HttpStatus.NOT_ACCEPTABLE.value(), updateBody.status());
+        assertEquals(uri.getPath(), updateBody.path());
+        assertNotNull(updateBody.message());
+        assertTrue(updateBody.message().matches("^Update\\scannot\\sacquire\\slock\\son\\sstock\\sfor\\sid" +
+                        "\\s'[a-fA-F0-9]{0,8}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'" +
+                        "\\.\\sTry\\sagain\\slater$"),
+                "Response message '%s' is not valid for the status: %d".formatted(
+                        updateBody.message(),
+                        updateBody.status()));
+        assertEquals(0, updateBody.count());
+        assertNotNull(updateBody.payload(), "Response body payload is null");
+        assertEquals(1, updateBody.payload().size());
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should fail if updated with auth JSON content due to lock")
+    @Order(10)
+    @Test
+    void deleteShouldPassIfDeletedWithAuthJsonContent() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.DELETE,
+                null,
+                Map.of("id", idToDelete),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+        assertEquals(HttpStatus.ACCEPTED.value(), body.status());
+        assertEquals(uri.getPath(), body.path());
+        assertNotNull(body.message());
+        assertTrue(body.message().matches("^Stock\\sdeleted\\sfor\\sid\\s'[a-fA-F0-9]{0,8}-[a-fA-F0-9]{0,4}" +
+                        "-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'$"),
+                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
+        assertEquals(1, body.count());
+        assertNotNull(body.payload(), "Response body payload is null");
+        assertEquals(1, body.payload().size());
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should fail if delete with auth JSON content by missing id")
+    @Order(11)
+    @Test
+    void deleteShouldFailIfDeletedWithAuthJsonContentWithMissingId() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.DELETE,
+                null,
+                Map.of("id", MISSING_ID),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND.value(), body.status());
+        assertEquals(uri.getPath(), body.path());
+        assertNotNull(body.message());
+        assertTrue(body.message().matches("^Cannot\\sfind\\sthe\\sstock\\sfor\\sid\\s'[a-fA-F0-9]{0,8}" +
+                        "-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'\\.\\sStock" +
+                        "\\snot\\sdeleted$"),
+                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
+        assertEquals(0, body.count());
+        assertNotNull(body.payload(), "Response body payload is null");
+        assertEquals(0, body.payload().size());
+    }
+
+    /**
+     *
+     */
+    @DisplayName("Should fail if deleted with auth JSON content due to lock")
+    @Order(12)
+    @Test
+    void tryDeleteShouldFailIfDeletedWithAuthJsonContentDueToLock() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.DELETE,
+                null,
+                Map.of("id", idToLock),
+                new ParameterizedTypeReference<>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.NOT_ACCEPTABLE, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_ACCEPTABLE.value(), body.status());
+        assertEquals(uri.getPath(), body.path());
+        assertNotNull(body.message());
+        assertTrue(body.message().matches("^Delete\\sfailed\\son\\slocked\\sstock\\sfor\\sid\\s'[a-fA-F0-9]" +
+                        "{0,8}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'\\.\\sTry" +
+                        "\\sagain\\slater$"),
+                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
+        assertEquals(0, body.count());
+        assertNotNull(body.payload(), "Response body payload is null");
+        assertEquals(1, body.payload().size());
     }
 
     /**
@@ -307,33 +550,18 @@ class StockControllerTest {
     }
 
     /**
+     * Equals two {@link Stock} instances based on externally modifiable attributes and return
+     * {@code true} if attributes are matching, else {@code false}.
      *
+     * @param req instance of {@link Stock} from the request sending from test class.
+     * @param res instance of {@link Stock} from the response coming in from the server.
+     * @return whether the two {@link Stock} are matching or not. Return {@link true} if equals,
+     * else {@code false}.
      */
-    @DisplayName("Should pass if updated with auth JSON content")
-    @Order(6)
-    @Test
-    void updateShouldPassIfUpdatedWithAuthJsonContent() {
-        var response = invokeEndpoint("/api/stocks/{id}",
-                HttpMethod.PUT,
-                new HttpEntity<>(stocks.get(1)),
-                Map.of("id", id),
-                new ParameterizedTypeReference<>() {
-                });
-
-        var body = response.getBody();
-
-        assertNotNull(body, "Response body content is null");
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertEquals(HttpStatus.CREATED.value(), body.status());
-        assertEquals(uri.getPath(), body.path());
-        assertNotNull(body.message());
-        assertTrue(body.message().matches("^Stock\\screated\\swith\\sid\\s'[a-fA-F0-9]{0,8}-[a-fA-F0-9]{0,4}" +
-                        "-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,4}-[a-fA-F0-9]{0,12}'$"),
-                "Response message '%s' is not valid for the status: %d".formatted(body.message(), body.status()));
-        assertEquals(1, body.count());
-        assertNotNull(body.payload(), "Response body payload is null");
-        assertEquals(1, body.payload().size());
-
-        id = body.payload().get(0).getId();
+    private boolean equals(@NotNull Stock req, @NotNull Stock res) {
+        return req.getName().equals(res.getName())
+                && req.getCurrency().equals(res.getCurrency())
+                && req.getPrice().equals(res.getPrice())
+                && req.getQuantity().equals(res.getQuantity());
     }
 }

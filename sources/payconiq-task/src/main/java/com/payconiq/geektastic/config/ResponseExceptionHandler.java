@@ -2,9 +2,7 @@ package com.payconiq.geektastic.config;
 
 import com.payconiq.geektastic.util.ResponseHandler;
 import com.payconiq.geektastic.util.pojo.Response;
-import com.payconiq.geektastic.util.store.StockStore;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

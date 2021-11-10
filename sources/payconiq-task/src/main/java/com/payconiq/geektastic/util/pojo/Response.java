@@ -42,7 +42,7 @@ public record Response<T>(
         String path,
         @JacksonXmlProperty(localName = "status")
         int status,
-        @NotNull
+        @Nullable
         @JacksonXmlProperty(localName = "message")
         String message,
         @Nullable

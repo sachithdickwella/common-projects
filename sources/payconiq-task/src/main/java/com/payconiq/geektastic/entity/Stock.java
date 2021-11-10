@@ -52,7 +52,7 @@ public class Stock extends Entity {
 
     /**
      * All-args constructor to initialize object without the super-class attributes.
-     *
+     * <p>
      * Note: This constructor only being used in testing.
      *
      * @param name     instance of {@link String} to denote stock name.

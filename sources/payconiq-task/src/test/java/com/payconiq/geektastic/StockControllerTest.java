@@ -108,7 +108,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for positive create scenario with basic authentication enabled when
+     * correct payload is provided.
      */
     @DisplayName("Should pass if created with auth JSON content")
     @Order(1)
@@ -139,7 +140,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative create scenario if an existing {@code 'id'} provided in the
+     * payload with basic authentication enabled.
      */
     @DisplayName("Should fail if created with auth JSON content with existing id")
     @Order(2)
@@ -171,7 +173,7 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for positive get all scenario with basic authentication enabled.
      */
     @DisplayName("Should retrieve all items with auth JSON content")
     @Order(3)
@@ -209,7 +211,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for positive get single scenario if an existing {@code 'id'} provided in the
+     * path variable with basic authentication enabled.
      */
     @DisplayName("Should retrieve single items with auth JSON content by id")
     @Order(4)
@@ -251,7 +254,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative get single scenario if a not existing {@code 'id'} provided in the
+     * path variable with basic authentication enabled.
      */
     @DisplayName("Should retrieve empty items with auth JSON content by missing id")
     @Order(5)
@@ -284,7 +288,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for positive update single scenario if an existing {@code 'id'} provided in the
+     * path variable with basic authentication enabled and payload has valid values.
      */
     @DisplayName("Should pass if updated with auth JSON content")
     @Order(6)
@@ -315,7 +320,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative update single scenario if a not existing {@code 'id'} provided
+     * in the path variable with basic authentication enabled and payload has valid values.
      */
     @DisplayName("Should fail if updated with auth JSON content by missing id")
     @Order(7)
@@ -345,7 +351,9 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative update single scenario if an update happened recently and stock's
+     * been locked for modification with basic authentication enabled and payload has valid values
+     * and {@code 'id'} provided
      */
     @DisplayName("Should fail if updated with auth JSON content due to lock")
     @Order(8)
@@ -375,7 +383,9 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative update single scenario if an update happened recently and stock's
+     * been locked, and locker has been full of locked items and try to perform an update with
+     * basic authentication enabled and payload has valid values and {@code 'id'} provided.
      */
     @DisplayName("Should fail if updated with auth JSON content due to locker full")
     @Order(9)
@@ -426,9 +436,10 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for positive delete single scenario if an existing {@code 'id'} provided in the
+     * path variable with basic authentication enabled.
      */
-    @DisplayName("Should fail if updated with auth JSON content due to lock")
+    @DisplayName("Should pass if deleted with auth JSON content")
     @Order(10)
     @Test
     void deleteShouldPassIfDeletedWithAuthJsonContent() {
@@ -455,7 +466,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative delete single scenario if a not existing {@code 'id'} provided
+     * in the path variable with basic authentication enabled.
      */
     @DisplayName("Should fail if delete with auth JSON content by missing id")
     @Order(11)
@@ -485,7 +497,8 @@ class StockControllerTest {
     }
 
     /**
-     *
+     * Test case for negative delete single scenario if stock's been locked for modification
+     * with basic authentication enabled and valid {@code 'id'} provided
      */
     @DisplayName("Should fail if deleted with auth JSON content due to lock")
     @Order(12)
@@ -515,6 +528,58 @@ class StockControllerTest {
     }
 
     /**
+     * Test case for negative get single scenario if an invalid {@code 'id'} provided in the
+     * path variable with basic authentication enabled.
+     */
+    @DisplayName("Should fail single items with auth JSON content by invalid id")
+    @Order(13)
+    @Test
+    void shouldFailSingleIfAuthJsonContentByInvalidId() {
+        var response = invokeEndpoint("/api/stocks/{id}",
+                HttpMethod.GET,
+                null,
+                Map.of("id", 1),
+                new ParameterizedTypeReference<Response<Stock>>() {
+                });
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST.value(), body.status());
+        assertEquals(uri.getPath(), body.path(),
+                "Expected path doesn't match with actual '%s'".formatted(body.path()));
+        assertNotNull(body.message());
+        assertNull(body.payload(), "Response body payload is not null");
+        assertNull(body.count(), "Response count is not null");
+    }
+
+    /**
+     * Test case for negative any scenario if not authenticated.
+     */
+    @DisplayName("Should fail any without authentication")
+    @Order(14)
+    @Test
+    void shouldFailAnyWithoutAuthentication() {
+        var response = invokeEndpoint("/api/stocks",
+                HttpMethod.GET,
+                null,
+                null,
+                new ParameterizedTypeReference<Response<Stock>>() {
+                }, false);
+
+        var body = response.getBody();
+
+        assertNotNull(body, "Response body content is null");
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals(HttpStatus.UNAUTHORIZED.value(), body.status());
+        assertEquals(uri.getPath(), body.path(),
+                "Expected path doesn't match with actual '%s'".formatted(body.path()));
+        assertNull(body.payload(), "Response body payload is not null");
+        assertNull(body.count(), "Response count is not null");
+    }
+
+    /**
      * Common handling method to invoke mock server endpoints for testing based on given
      * parameters.
      *
@@ -527,26 +592,33 @@ class StockControllerTest {
      *                      with path variable values.
      * @param typeReference instance of {@link ParameterizedTypeReference} to represent
      *                      generic {@link Response} type.
+     * @param authEnabled   instance of {@code boolean} vararg to make authenticated and not
+     *                      authenticated requests.
      * @return an instance of {@link ResponseEntity} to the upstream which represents the
      * http response.
      */
+    @NotNull
     private <T> ResponseEntity<Response<T>> invokeEndpoint(
             @NotNull String path,
             @NotNull HttpMethod httpMethod,
             @Nullable HttpEntity<T> entity,
             @Nullable Map<String, ?> uriVariables,
-            @NotNull ParameterizedTypeReference<Response<T>> typeReference) {
+            @NotNull ParameterizedTypeReference<Response<T>> typeReference,
+            boolean... authEnabled) {
 
         this.uri = UriComponentsBuilder.fromUriString("http://localhost")
                 .port(port)
                 .path(path)
                 .buildAndExpand(uriVariables == null ? Map.of() : uriVariables)
                 .toUri();
-        return restTemplate.withBasicAuth(username, password)
-                .exchange(this.uri,
-                        httpMethod,
-                        entity,
-                        typeReference);
+
+        var template = restTemplate;
+        if (authEnabled.length == 0 || authEnabled[0]) template = template.withBasicAuth(username, password);
+
+        return template.exchange(this.uri,
+                httpMethod,
+                entity,
+                typeReference);
     }
 
     /**

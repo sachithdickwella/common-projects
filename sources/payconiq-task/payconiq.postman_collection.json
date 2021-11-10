@@ -1,0 +1,214 @@
+{
+  "info": {
+    "_postman_id": "4d67299a-a6d0-4d77-92c6-ff6fccfbbcf1",
+    "name": "Payconiq",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get All",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic cGF5Y29uaXE6MXFhejJ3c3hA",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "localhost:8080/api/stocks",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "stocks"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get One",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic cGF5Y29uaXE6MXFhejJ3c3hA",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "localhost:8080/api/stocks/54ef3928-64f8-4181-9d02-33f700a226ea",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "stocks",
+            "54ef3928-64f8-4181-9d02-33f700a226ea"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create One",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic cGF5Y29uaXE6MXFhejJ3c3hA",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Item 138\",\n    \"currency\": \"LKR\",\n    \"price\": 56.14,\n    \"quantity\": 980\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "localhost:8080/api/stocks",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "stocks"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update One",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic cGF5Y29uaXE6MXFhejJ3c3hA",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Item 132\",\n    \"currency\": \"USD\",\n    \"price\": 96.65,\n    \"quantity\": 140\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "localhost:8080/api/stocks/ba95c800-88d2-43a7-9b7c-7a430685d25f",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "stocks",
+            "ba95c800-88d2-43a7-9b7c-7a430685d25f"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete One",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic cGF5Y29uaXE6MXFhejJ3c3hA",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "localhost:8080/api/stocks/ba95c800-88d2-43a7-9b7c-7a430685d25f",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "stocks",
+            "ba95c800-88d2-43a7-9b7c-7a430685d25f"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

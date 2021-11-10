@@ -5,3 +5,4 @@
 # Program related ignores.
 logs/
 target/
+standalone-deploy/

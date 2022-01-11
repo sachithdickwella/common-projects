@@ -40,6 +40,7 @@ public class LiveCode {
 
         var reversed3 = new StringBuilder(alphabet);
         System.out.println(reversed3.reverse());
+        System.out.println(reversed3.insert(2, "XYZ"));
 
         // -----------------------------------------------------------------------------------
 

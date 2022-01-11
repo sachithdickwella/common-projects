@@ -6,7 +6,7 @@ package com.hackerrank.task.pn;
 public class PrimeNumbers {
 
     public static void main(String[] args) {
-        int upto = 1_000_000;
+        int upto = 100;
         for (int x = 1; x <= upto; x++) {
             if (isPrime(x)) {
                 System.out.println(x);

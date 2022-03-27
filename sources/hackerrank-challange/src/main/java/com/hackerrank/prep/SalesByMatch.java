@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -22,7 +23,7 @@ public class SalesByMatch {
             List<Integer> integers = Stream.of(bufferedReader.readLine()
                             .replaceAll("\\s+$", "")
                             .split(" "))
-                    .map(Integer::parseInt).toList();
+                    .map(Integer::parseInt).collect(Collectors.toList());
 
             int result = Result.sockMerchant(n, integers);
 

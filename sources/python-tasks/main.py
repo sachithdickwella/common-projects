@@ -1,9 +1,24 @@
-#!/usr/bin/python
-
-def solution(S, C):
-    pass
+#!/bin/python3
 
 
-# Press the green button in the gutter to run the script.
+def arrayManipulation(n, queries):  # NOSONAR
+    v_max = 0
+
+
+
+    return v_max
+
+
 if __name__ == '__main__':
-    solution("abccdb", [0, 1, 2, 3, 4, 5])
+    first_multiple_input = input().rstrip().split()
+
+    n = int(first_multiple_input[0])
+    m = int(first_multiple_input[1])
+
+    queries = []
+
+    for _ in range(m):
+        queries.append(list(map(int, input().rstrip().split())))
+
+    result = arrayManipulation(n, queries)
+    print(result)
